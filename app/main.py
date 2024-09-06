@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Response, status, HTTPException, Depends
 from fastapi.params import Body
+from typing import List
 from random import randrange
 import psycopg
 from psycopg.rows import dict_row
@@ -34,36 +35,31 @@ def find_post(id):
   post = cursor.fetchone()
   return post
 
-def find_index_post(id):
-  for i, p in enumerate(my_posts):
-    if p['id'] == id:
-      return i
-
 @app.get('/')
 async def root():
   return {'message': "Welcome to my API!"}
 
-@app.get('/posts')
+@app.get('/posts', response_model=List[schemas.PostResponse])
 async def posts(db: Session = Depends(get_db)):
   posts = db.query(models.Post).all()
-  return {'data': posts}
+  return posts
 
-@app.post('/posts', status_code=status.HTTP_201_CREATED)
+@app.post('/posts', status_code=status.HTTP_201_CREATED, response_model=schemas.PostResponse)
 async def create_post(post: schemas.PostCreate, db: Session = Depends(get_db)):
   post = models.Post(**post.model_dump())
   
   db.add(post)
   db.commit()
   db.refresh(post)
-  return {'data': post}
+  return post
 
-@app.get('/posts/{id}')
+@app.get('/posts/{id}', response_model=schemas.PostResponse)
 async def get_post(id: int, db: Session = Depends(get_db)):
   post = db.query(models.Post).filter(models.Post.id == id).one()
   if not post:
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, 
                         detail=f"Post with id: {id} not found")
-  return {'post': post}
+  return post
 
 @app.delete('/posts/{id}', status_code=status.HTTP_204_NO_CONTENT)
 async def delete_post(id: int, db: Session = Depends(get_db)):
@@ -75,7 +71,7 @@ async def delete_post(id: int, db: Session = Depends(get_db)):
   db.commit()
   return Response(status_code=status.HTTP_204_NO_CONTENT)
 
-@app.put('/posts/{id}')
+@app.put('/posts/{id}', response_model=schemas.PostResponse)
 async def update_post(id: int, updated_post: schemas.PostCreate, db: Session = Depends(get_db)):
   post_query = db.query(models.Post).filter(models.Post.id == id)
 
@@ -87,4 +83,4 @@ async def update_post(id: int, updated_post: schemas.PostCreate, db: Session = D
   post_query.update(updated_post.model_dump(), synchronize_session=False)
   db.commit()
   db.refresh(post)
-  return {'data': post}
+  return post
