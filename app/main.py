@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Response, status, HTTPException
+from fastapi import FastAPI, Response, status, HTTPException, Depends
 from fastapi.params import Body
 from pydantic import BaseModel
 from typing import Optional
@@ -6,6 +6,10 @@ from random import randrange
 import psycopg
 from psycopg.rows import dict_row
 import time
+from sqlalchemy.orm import Session
+from . import models
+from .database import engine, get_db
+models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
@@ -54,7 +58,7 @@ async def posts():
   return {'data': posts}
 
 @app.post('/posts', status_code=status.HTTP_201_CREATED)
-async def create_post(post: Post):
+async def create_post(post: Post, db: Session = Depends(get_db)):
   cursor.execute('INSERT INTO posts (title, content, published) VALUES (%s, %s, %s) RETURNING *', 
                  (post.title, post.content, post.published))
   
